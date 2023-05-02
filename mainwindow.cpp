@@ -6,6 +6,11 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+
+    server = new Server(context, server_port);
+
+    context.run();
+
     timer = new QTimer(this);
     connect(timer, SIGNAL(timeout()), this, SLOT(update_ui()));
     timer->start(1000);
@@ -21,7 +26,19 @@ MainWindow::MainWindow(QWidget *parent)
 
 void MainWindow::update_ui()
 {
+    for(auto &c : server->getClientConnections()){
+        if(c != nullptr){
+            // Convert the cv::Mat to a QImage.
+            QImage stream = QImage(c->uncompressed_screenshot_data.data, c->uncompressed_screenshot_data.cols, c->uncompressed_screenshot_data.rows, c->uncompressed_screenshot_data.step, QImage::Format_RGB888).copy();
 
+            if(c->preview_ui == nullptr){
+                c->preview_ui = new ClientPreviewWidget(this, stream, QString::fromStdString(c->remote_endpoint_.address().to_string()));
+                preview_layout->add_widget(c->preview_ui);
+            }else{
+                c->preview_ui->update_preview_frame(stream);
+            }
+        }
+    }
 }
 
 MainWindow::~MainWindow()

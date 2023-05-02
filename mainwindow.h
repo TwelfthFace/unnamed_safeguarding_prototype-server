@@ -10,6 +10,8 @@
 #include "clientpreviewwidget.h"
 #include "my_grid_layout.h"
 
+#include "Server.h"
+
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
@@ -28,5 +30,10 @@ private:
     my_grid_layout* preview_layout;
     QWidget* preview_container;
     QTimer* timer;
+    Server* server;
+
+    const unsigned short server_port = 12345;
+    boost::asio::io_context context;
+
 };
 #endif // MAINWINDOW_H

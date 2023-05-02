@@ -118,6 +118,8 @@ void ClientConnection::readScreenshotData() {
         // Send acknowledgement back to the client
         boost::asio::write(socket_, boost::asio::buffer(&ack, sizeof(ack)));
 
+        cv::cvtColor(cv::imdecode(screenshot_data_, cv::IMREAD_COLOR), uncompressed_screenshot_data, cv::COLOR_BGR2RGB);
+
     }catch(std::exception &ex){
         std::cerr << "ERROR: Read Screenshot: " << ex.what() << std::endl;
         disconnect();

@@ -10,7 +10,7 @@ void Server::stop(){
 }
 
 std::set<ClientConnection::Pointer> Server::getClientConnections() {
-    std::lock_guard<std::mutex> lock(connections_mutex_);
+    //std::lock_guard<std::mutex> lock(connections_mutex_);
     return active_connections_;
 }
 

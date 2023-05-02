@@ -14,14 +14,7 @@ int main(int argc, char *argv[])
 
     QApplication a(argc, argv);
 
-    const unsigned short server_port = 12345;
-
-    boost::asio::io_context context;
-    Server server(context, server_port);
-
     //std::thread context_thread([&](){context.run();});
-
-    context.run();
 
 //    auto io_context = std::make_shared<boost::asio::io_context>();
 //    auto server = std::make_shared<Server>(*io_context, server_port);

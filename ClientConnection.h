@@ -7,9 +7,12 @@
 #include <tuple>
 #include <string>
 #include <iostream>
+#include <opencv2/opencv.hpp>
+#include <opencv2/imgcodecs.hpp>
 
 #include "Header.h"
 #include "AckHeader.h"
+#include "clientpreviewwidget.h"
 
 class Server;
 
@@ -26,9 +29,10 @@ public:
     void processClient();
     void checkQueue();
     void setRemoteEndpoint(const boost::asio::ip::tcp::endpoint& endpoint);
-
+    ClientPreviewWidget* preview_ui = nullptr;
+    cv::Mat uncompressed_screenshot_data;
+    boost::asio::ip::tcp::endpoint remote_endpoint_;
     virtual ~ClientConnection();
-
 private:
     ClientConnection(boost::asio::io_context& context, Server& server);
 
@@ -44,5 +48,4 @@ private:
     std::vector<u_char> screenshot_data_;
     std::deque<std::tuple<Header, std::array<char, 1024>>> msg_queue_;
     Header header_;
-    boost::asio::ip::tcp::endpoint remote_endpoint_;
 };

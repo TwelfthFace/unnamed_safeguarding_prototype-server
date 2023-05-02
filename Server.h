@@ -15,7 +15,6 @@ class ClientConnection;
 class Server{
 public:
   Server(boost::asio::io_context &context, unsigned short port);
-  //typedef boost::shared_ptr<ClientConnection> Pointer;
   std::set<ClientConnection::Pointer> getClientConnections();
   void RemoveClosedConnections();
   void on_session_started(ClientConnection::Pointer connection);
