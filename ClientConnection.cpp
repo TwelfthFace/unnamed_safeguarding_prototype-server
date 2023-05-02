@@ -100,7 +100,7 @@ void ClientConnection::readScreenshotData() {
             bytes_received += bytes_to_receive;
         }
 
-        // check png header
+        // check png header if valid
         const std::array<short, 8> png_header = {137, 80, 78, 71, 13, 10, 26, 10};
         Ack ack;
 
