@@ -27,18 +27,31 @@ MainWindow::MainWindow(QWidget *parent)
 void MainWindow::update_ui()
 {
     for(auto &c : server->getClientConnections()){
-        if(c != nullptr){
-            // Convert the cv::Mat to a QImage.
-            QImage stream = QImage(c->uncompressed_screenshot_data.data, c->uncompressed_screenshot_data.cols, c->uncompressed_screenshot_data.rows, c->uncompressed_screenshot_data.step, QImage::Format_RGB888).copy();
 
-            if(c->preview_ui == nullptr){
-                c->preview_ui = new ClientPreviewWidget(this, stream, QString::fromStdString(c->remote_endpoint_.address().to_string()));
-                preview_layout->add_widget(c->preview_ui);
-            }else{
-                c->preview_ui->update_preview_frame(stream);
-            }
+        // Convert the cv::Mat to a QImage.
+        QImage stream = QImage(c->uncompressed_screenshot_data.data, c->uncompressed_screenshot_data.cols, c->uncompressed_screenshot_data.rows, c->uncompressed_screenshot_data.step, QImage::Format_RGB888).copy();
+
+        if(c->preview_ui == nullptr){
+            c->preview_ui = new ClientPreviewWidget(this, stream, QString::fromStdString(c->remote_endpoint_.address().to_string()), c);
+            preview_layout->add_widget(c->preview_ui);
+        }else{
+            c->preview_ui->update_preview_frame(stream);
         }
+
     }
+
+    char connected_clients[16];
+    snprintf(connected_clients, sizeof(connected_clients), "%zu", server->getClientConnections().size());
+
+    QString client_connected_message("Clients Connected: ");
+    client_connected_message.append(connected_clients);
+
+    if(server->getClientConnections().size() > 0){
+        ui->statusbar->showMessage(client_connected_message);
+    }else{
+        ui->statusbar->showMessage(tr("No clients connected."));
+    }
+
 }
 
 MainWindow::~MainWindow()

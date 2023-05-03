@@ -1,5 +1,11 @@
 #pragma once
-enum MessageType { TEXT, SCREENSHOT, SCREENSHOT_REQ };
+enum MessageType {
+    TEXT = 0,
+    LOCK_SCREEN = 1,
+    UNLOCK_SCREEN = 2,
+    SCREENSHOT = 3,
+    SCREENSHOT_REQ = 4
+};
 
 struct Header {
   MessageType type;

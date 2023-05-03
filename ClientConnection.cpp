@@ -2,7 +2,11 @@
 
 #include "Server.h"
 
-ClientConnection::ClientConnection(boost::asio::io_context& context, Server& server) : server_(server), socket_(context) {}
+ClientConnection::ClientConnection(boost::asio::io_context& context, Server& server) : server_(server), socket_(context) {
+
+//    lockScreen();
+
+}
 
 ClientConnection::Pointer ClientConnection::create(boost::asio::io_context &context, Server& server) {
     return Pointer(new ClientConnection(context, server));
@@ -34,19 +38,43 @@ void ClientConnection::sendText(const std::string& text) {
 
 void ClientConnection::checkQueue()
 {
-    if(!msg_queue_.empty()){
-        for(auto& msg : msg_queue_){
+    std::lock_guard<std::mutex> lock(queue_mutex_);
+
+    if (!msg_queue_.empty()) {
+        for (auto& msg : msg_queue_) {
             header_ = std::get<0>(msg);
             text_buffer_ = std::get<1>(msg);
 
-            std::cout << "SENDING MESSAGE" << "WITH SIZE " << header_.size << std::endl;
+            std::cout << "SENDING MESSAGE " << "WITH SIZE " << header_.size << std::endl;
             boost::asio::write(socket_, boost::asio::buffer(&header_, sizeof(header_)));
-            boost::asio::write(socket_, boost::asio::buffer(&text_buffer_, header_.size));
 
+            if (text_buffer_.empty()) {
+                std::cout << "Skipping empty message" << std::endl;
+                continue;
+            }
+
+            boost::asio::write(socket_, boost::asio::buffer(&text_buffer_, header_.size));
         }
         msg_queue_.clear();
     }
 }
+
+void ClientConnection::lockScreen()
+{
+    Header header = {LOCK_SCREEN, 0};
+    std::array<char, 1024> dead_beef{};
+
+    addToQueue(header, dead_beef);
+}
+
+void ClientConnection::unlockScreen()
+{
+    Header header = {UNLOCK_SCREEN, 0};
+    std::array<char, 1024> dead_beef{};
+
+    addToQueue(header, dead_beef);
+}
+
 
 void ClientConnection::readHeader() {
     std::cout << "WAIT FOR PACKET" << std::endl;
@@ -139,7 +167,7 @@ void ClientConnection::requestScreenshot(){
             boost::asio::write(socket_, boost::asio::buffer(&header_, sizeof(header_)));
         }catch(std::exception& ex){
             std::cerr << "ERROR: Request Screenshot: " << ex.what() << std::endl;
-            //disconnect();
+            disconnect();
             break;
         }
 
@@ -159,6 +187,9 @@ void ClientConnection::stop()
 }
 
 void ClientConnection::disconnect() {
+
+    preview_ui->disconnect_client();
+
     auto self(shared_from_this());
     socket_.close();
     server_.on_session_stopped(self, remote_endpoint_);
@@ -176,6 +207,12 @@ void ClientConnection::handle_timeout(const boost::system::error_code &error)
     }
 }
 
+void ClientConnection::addToQueue(const Header& header, const std::array<char, 1024>& message) {
+    std::lock_guard<std::mutex> lock(queue_mutex_);
+    msg_queue_.emplace_back(header, message);
+}
+
 ClientConnection::~ClientConnection(){
+    delete preview_ui;
     std::cout << "DESTRUCTOR CALLED" << std::endl;
 }

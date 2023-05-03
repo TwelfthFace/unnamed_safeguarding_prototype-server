@@ -10,7 +10,7 @@ void Server::stop(){
 }
 
 std::set<ClientConnection::Pointer> Server::getClientConnections() {
-    //std::lock_guard<std::mutex> lock(connections_mutex_);
+    std::lock_guard<std::mutex> lock(connections_mutex_);
     return active_connections_;
 }
 
@@ -22,6 +22,7 @@ void Server::on_session_started(ClientConnection::Pointer connection) {
 void Server::on_session_stopped(ClientConnection::Pointer connection, const boost::asio::ip::tcp::endpoint& endpoint) {
     std::lock_guard<std::mutex> lock(connections_mutex_);
     std::cout << "Client Disconnected: " << endpoint << std::endl;
+
     active_connections_.erase(connection);
 }
 

@@ -15,6 +15,7 @@
 #include "clientpreviewwidget.h"
 
 class Server;
+class ClientPreviewWidget;
 
 class ClientConnection : public std::enable_shared_from_this<ClientConnection> {
 public:
@@ -28,6 +29,8 @@ public:
     void sendText(const std::string& text);
     void processClient();
     void checkQueue();
+    void lockScreen();
+    void unlockScreen();
     void setRemoteEndpoint(const boost::asio::ip::tcp::endpoint& endpoint);
     ClientPreviewWidget* preview_ui = nullptr;
     cv::Mat uncompressed_screenshot_data;
@@ -41,11 +44,14 @@ private:
     void readScreenshotData();
     void disconnect();
     void handle_timeout(const boost::system::error_code& error);
+    void addToQueue(const Header& header, const std::array<char, 1024>& message);
+
 
     Server& server_;
     boost::asio::ip::tcp::socket socket_;
     std::array<char, 1024> text_buffer_;
     std::vector<u_char> screenshot_data_;
     std::deque<std::tuple<Header, std::array<char, 1024>>> msg_queue_;
+    std::mutex queue_mutex_;
     Header header_;
 };
