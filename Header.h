@@ -1,4 +1,7 @@
 #pragma once
+#include <vector>
+#include <string>
+#define log_length 1024
 enum MessageType {
     TEXT = 0,
     LOCK_SCREEN = 1,
@@ -7,8 +10,13 @@ enum MessageType {
     SCREENSHOT_REQ = 4
 };
 
-struct Header {
-  MessageType type;
-  std::size_t size;
+struct MetaData {
+    bool is_locked;
+    std::array<u_char, log_length> data;
 };
 
+struct Header {
+    MessageType type;
+    std::size_t size;
+    std::size_t meta_length;
+};

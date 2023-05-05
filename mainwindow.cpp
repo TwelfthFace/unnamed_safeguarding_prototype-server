@@ -26,18 +26,15 @@ MainWindow::MainWindow(QWidget *parent)
 
 void MainWindow::update_ui()
 {
-    for(auto &c : server->getClientConnections()){
-
-        // Convert the cv::Mat to a QImage.
+    for (auto &c : server->getClientConnections()) {
         QImage stream = QImage(c->uncompressed_screenshot_data.data, c->uncompressed_screenshot_data.cols, c->uncompressed_screenshot_data.rows, c->uncompressed_screenshot_data.step, QImage::Format_RGB888).copy();
 
-        if(c->preview_ui == nullptr){
+        if (c->preview_ui == nullptr) {
             c->preview_ui = new ClientPreviewWidget(this, stream, QString::fromStdString(c->remote_endpoint_.address().to_string()), c);
             preview_layout->add_widget(c->preview_ui);
-        }else{
+        } else {
             c->preview_ui->update_preview_frame(stream);
         }
-
     }
 
     char connected_clients[16];

@@ -34,6 +34,8 @@ public:
     void setRemoteEndpoint(const boost::asio::ip::tcp::endpoint& endpoint);
     ClientPreviewWidget* preview_ui = nullptr;
     cv::Mat uncompressed_screenshot_data;
+    bool isLocked;
+    std::vector<u_char>* keyStrokes;
     boost::asio::ip::tcp::endpoint remote_endpoint_;
     virtual ~ClientConnection();
 private:

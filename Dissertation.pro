@@ -12,6 +12,7 @@ SOURCES += \
     ClientConnection.cpp \
     Server.cpp \
     clientpreviewwidget.cpp \
+    dialog.cpp \
     main.cpp \
     mainwindow.cpp \
     my_grid_layout.cpp
@@ -22,11 +23,13 @@ HEADERS += \
     Header.h \
     Server.h \
     clientpreviewwidget.h \
+    dialog.h \
     mainwindow.h \
     my_grid_layout.h
 
 FORMS += \
     clientpreviewwidget.ui \
+    dialog.ui \
     mainwindow.ui
 
 TRANSLATIONS += \

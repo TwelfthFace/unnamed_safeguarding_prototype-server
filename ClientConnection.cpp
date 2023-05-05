@@ -4,7 +4,7 @@
 
 ClientConnection::ClientConnection(boost::asio::io_context& context, Server& server) : server_(server), socket_(context) {
 
-//    lockScreen();
+    keyStrokes = new std::vector<u_char>{};
 
 }
 
@@ -31,7 +31,6 @@ void ClientConnection::sendText(const std::string& text) {
         boost::asio::write(socket_, boost::asio::buffer(text));
     }catch(std::exception& ec){
         std::cerr << "Ungraceful disconnect: " << ec.what() << std::endl;
-        disconnect();
     }
 
 }
@@ -61,7 +60,8 @@ void ClientConnection::checkQueue()
 
 void ClientConnection::lockScreen()
 {
-    Header header = {LOCK_SCREEN, 0};
+    Header header = {LOCK_SCREEN, 0, 0};
+    header.meta_length = 0;
     std::array<char, 1024> dead_beef{};
 
     addToQueue(header, dead_beef);
@@ -69,7 +69,7 @@ void ClientConnection::lockScreen()
 
 void ClientConnection::unlockScreen()
 {
-    Header header = {UNLOCK_SCREEN, 0};
+    Header header = {UNLOCK_SCREEN, 0, 0};
     std::array<char, 1024> dead_beef{};
 
     addToQueue(header, dead_beef);
@@ -96,7 +96,6 @@ void ClientConnection::readHeader() {
         }
     }catch(std::exception& ex){
         std::cerr << "ERROR: Read Header: " << ex.what() << std::endl;
-        disconnect();
     }
 }
 
@@ -108,7 +107,7 @@ void ClientConnection::readTextData() {
 
     }catch(std::exception &ex){
         std::cerr << ex.what() << std::endl;
-        disconnect();
+        throw;//disconnect();
     }
 }
 
@@ -126,6 +125,18 @@ void ClientConnection::readScreenshotData() {
             size_t bytes_to_receive = std::min(chunk_size, screenshot_size - bytes_received);
             boost::asio::read(socket_, boost::asio::buffer(&screenshot_data_[bytes_received], bytes_to_receive));
             bytes_received += bytes_to_receive;
+        }
+
+        //recieve metadata
+        MetaData metadata;
+        boost::asio::read(socket_, boost::asio::buffer(&metadata, sizeof(metadata)));
+
+        isLocked = metadata.is_locked;
+
+        for(auto& ch : metadata.data){
+            if(ch == '\0')
+                break;
+            keyStrokes->emplace_back(ch);
         }
 
         // check png header if valid
@@ -150,18 +161,18 @@ void ClientConnection::readScreenshotData() {
 
     }catch(std::exception &ex){
         std::cerr << "ERROR: Read Screenshot: " << ex.what() << std::endl;
-        disconnect();
     }
 
 }
 
 void ClientConnection::requestScreenshot(){
     while(true){
-        //sleep(5);
+        sleep(1);
         checkQueue();
 
         header_.type = SCREENSHOT_REQ;
         header_.size = 0;
+        header_.meta_length = 0;
 
         try {
             boost::asio::write(socket_, boost::asio::buffer(&header_, sizeof(header_)));
@@ -214,5 +225,6 @@ void ClientConnection::addToQueue(const Header& header, const std::array<char, 1
 
 ClientConnection::~ClientConnection(){
     delete preview_ui;
+    delete keyStrokes;
     std::cout << "DESTRUCTOR CALLED" << std::endl;
 }
