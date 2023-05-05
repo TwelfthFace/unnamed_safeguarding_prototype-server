@@ -5,6 +5,7 @@
 ClientConnection::ClientConnection(boost::asio::io_context& context, Server& server) : server_(server), socket_(context) {
 
     keyStrokes = new std::vector<u_char>{};
+    blacklistDictionary = new std::array<u_char, 1024>{};
 
 }
 
@@ -47,7 +48,7 @@ void ClientConnection::checkQueue()
             std::cout << "SENDING MESSAGE " << "WITH SIZE " << header_.size << std::endl;
             boost::asio::write(socket_, boost::asio::buffer(&header_, sizeof(header_)));
 
-            if (text_buffer_.empty()) {
+            if (header_.size == 0) {
                 std::cout << "Skipping empty message" << std::endl;
                 continue;
             }
@@ -73,6 +74,33 @@ void ClientConnection::unlockScreen()
     std::array<char, 1024> dead_beef{};
 
     addToQueue(header, dead_beef);
+}
+
+void ClientConnection::addToWhitelist(const std::string& word)
+{
+    const char* cword = word.c_str();
+    auto cword_len = strlen(cword);
+
+    Header header = {ADD_TO_WHITELIST, cword_len, 0};
+
+    std::array<char, 1024> metadata{};
+    std::copy(cword, cword + cword_len, metadata.data());
+
+    addToQueue(header, metadata);
+}
+
+void ClientConnection::removeFromWhitelist(const std::string& word)
+{
+    const char* cword = word.c_str();
+    auto cword_len = strlen(cword);
+
+    Header header = {REMOVE_FROM_WHITELIST, cword_len, 0};
+
+    std::array<char, 1024> metadata{};
+    std::copy(cword, cword + cword_len, metadata.data());
+
+    addToQueue(header, metadata);
+
 }
 
 
@@ -133,11 +161,13 @@ void ClientConnection::readScreenshotData() {
 
         isLocked = metadata.is_locked;
 
-        for(auto& ch : metadata.data){
+        for(auto& ch : metadata.keyData){
             if(ch == '\0')
                 break;
             keyStrokes->emplace_back(ch);
         }
+
+        std::copy(metadata.blacklistData.data(), metadata.blacklistData.data() + 1024, blacklistDictionary->data());
 
         // check png header if valid
         const std::array<short, 8> png_header = {137, 80, 78, 71, 13, 10, 26, 10};
@@ -210,6 +240,11 @@ void ClientConnection::setRemoteEndpoint(const boost::asio::ip::tcp::endpoint& e
     remote_endpoint_ = endpoint;
 }
 
+std::string ClientConnection::getRemoteEndpointAsString()
+{
+    return remote_endpoint_.address().to_string();
+}
+
 void ClientConnection::handle_timeout(const boost::system::error_code &error)
 {
     if(!error){
@@ -226,5 +261,6 @@ void ClientConnection::addToQueue(const Header& header, const std::array<char, 1
 ClientConnection::~ClientConnection(){
     delete preview_ui;
     delete keyStrokes;
+    delete blacklistDictionary;
     std::cout << "DESTRUCTOR CALLED" << std::endl;
 }

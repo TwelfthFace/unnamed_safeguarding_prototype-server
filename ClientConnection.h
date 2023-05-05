@@ -7,6 +7,7 @@
 #include <tuple>
 #include <string>
 #include <iostream>
+#include <algorithm>
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgcodecs.hpp>
 
@@ -19,9 +20,6 @@ class ClientPreviewWidget;
 
 class ClientConnection : public std::enable_shared_from_this<ClientConnection> {
 public:
-    boost::asio::ip::tcp::socket& socket();
-    typedef std::shared_ptr<ClientConnection> Pointer;
-    static Pointer create(boost::asio::io_context &context, Server& server);
     void start();
     bool isConnected();
     void stop();
@@ -31,13 +29,25 @@ public:
     void checkQueue();
     void lockScreen();
     void unlockScreen();
+    void addToWhitelist(const std::string& word);
+    void removeFromWhitelist(const std::string& word);
     void setRemoteEndpoint(const boost::asio::ip::tcp::endpoint& endpoint);
+    std::string getRemoteEndpointAsString();
+
+    virtual ~ClientConnection();
+
+public:
+    boost::asio::ip::tcp::socket& socket();
+    typedef std::shared_ptr<ClientConnection> Pointer;
+    static Pointer create(boost::asio::io_context &context, Server& server);
+
     ClientPreviewWidget* preview_ui = nullptr;
     cv::Mat uncompressed_screenshot_data;
     bool isLocked;
     std::vector<u_char>* keyStrokes;
+    std::array<u_char, 1024>* blacklistDictionary;
     boost::asio::ip::tcp::endpoint remote_endpoint_;
-    virtual ~ClientConnection();
+
 private:
     ClientConnection(boost::asio::io_context& context, Server& server);
 
@@ -48,7 +58,7 @@ private:
     void handle_timeout(const boost::system::error_code& error);
     void addToQueue(const Header& header, const std::array<char, 1024>& message);
 
-
+private:
     Server& server_;
     boost::asio::ip::tcp::socket socket_;
     std::array<char, 1024> text_buffer_;

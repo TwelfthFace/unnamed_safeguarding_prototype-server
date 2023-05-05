@@ -38,16 +38,30 @@ void ClientPreviewWidget::disconnect_client()
 
 ClientPreviewWidget::~ClientPreviewWidget()
 {
+    disconnect_client();
     delete ui;
 }
 
 void ClientPreviewWidget::mousePressEvent(QMouseEvent *event) {
     if (event->button() == Qt::LeftButton) {
         if(!big_view){
-            big_view = new Dialog(nullptr, client_ptr->keyStrokes);
+            big_view = new Dialog(nullptr, client_ptr);
+            big_view->setAttribute(Qt::WA_DeleteOnClose);
+            big_view->setWindowTitle(QString::fromStdString(client_ptr->getRemoteEndpointAsString()));
+            // Set the Qt::WA_DeleteOnClose attribute
+            big_view->setAttribute(Qt::WA_DeleteOnClose);
+
+            // Connect the destroyed signal to set the m_dialog pointer to nullptr
+            connect(big_view, &QDialog::destroyed, [this]() {
+                big_view = nullptr;
+            });
+
+            // Configure and show the QDialog
             big_view->show();
-        }else{
-            big_view->show();
+        } else {
+            // If the dialog is already open, raise and activate it
+            big_view->raise();
+            big_view->activateWindow();
         }
     }
 }
