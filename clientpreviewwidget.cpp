@@ -15,12 +15,16 @@ void ClientPreviewWidget::update_preview_frame(QImage frame)
     ClientPreviewWidget::frame = frame;
     ui->frame_out->setPixmap(QPixmap::fromImage(frame, Qt::AutoColor).scaled(ui->frame_out->width(),ui->frame_out->height(),Qt::KeepAspectRatio));
 
+    QString stylesheet("background-color: red");
+
     b_locked = client_ptr->isLocked;
 
     if(!b_locked){
         this->ui->btn_Lock->setText(QString("Lock"));
+        this->setStyleSheet(QString(""));
     }else{
         this->ui->btn_Lock->setText(QString("Unlock"));
+        this->setStyleSheet(stylesheet);
     }
 }
 

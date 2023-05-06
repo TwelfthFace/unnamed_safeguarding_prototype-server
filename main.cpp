@@ -4,10 +4,6 @@
 #include <QLocale>
 #include <QTranslator>
 
-#include <iostream>
-#include <thread>
-#include "Server.h"
-
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);

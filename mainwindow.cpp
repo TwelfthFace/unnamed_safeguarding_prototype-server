@@ -51,7 +51,6 @@ void MainWindow::update_ui()
 
 }
 
-
 void MainWindow::on_btn_lock_all_clicked()
 {
     for (auto &c : server->getClientConnections()) {
