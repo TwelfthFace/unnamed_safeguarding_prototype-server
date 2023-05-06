@@ -25,6 +25,11 @@ public:
     ~MainWindow();
 public slots:
     void update_ui();
+private slots:
+    void on_btn_lock_all_clicked();
+
+    void on_btn_unlock_all_clicked();
+
 private:
     Ui::MainWindow *ui;
     my_grid_layout* preview_layout;

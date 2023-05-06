@@ -51,9 +51,23 @@ void MainWindow::update_ui()
 
 }
 
+
+void MainWindow::on_btn_lock_all_clicked()
+{
+    for (auto &c : server->getClientConnections()) {
+        c->lockScreen();
+    }
+}
+
+void MainWindow::on_btn_unlock_all_clicked()
+{
+    for (auto &c : server->getClientConnections()) {
+        c->unlockScreen();
+    }
+}
+
 MainWindow::~MainWindow()
 {
     delete ui;
     delete timer;
 }
-
