@@ -27,7 +27,6 @@ public slots:
     void update_ui();
 private slots:
     void on_btn_lock_all_clicked();
-
     void on_btn_unlock_all_clicked();
 
 private:
@@ -38,7 +37,5 @@ private:
     Server* server;
 
     const unsigned short server_port = 12345;
-    boost::asio::io_context context;
-
 };
 #endif // MAINWINDOW_H

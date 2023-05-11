@@ -12,19 +12,22 @@ ClientPreviewWidget::ClientPreviewWidget(QWidget *parent, QImage frame, QString 
 
 void ClientPreviewWidget::update_preview_frame(QImage frame)
 {
-    ClientPreviewWidget::frame = frame;
-    ui->frame_out->setPixmap(QPixmap::fromImage(frame, Qt::AutoColor).scaled(ui->frame_out->width(),ui->frame_out->height(),Qt::KeepAspectRatio));
+    if(client_ptr){
+        ClientPreviewWidget::frame = frame;
+        ui->frame_out->setPixmap(QPixmap::fromImage(frame, Qt::AutoColor).scaled(ui->frame_out->width(),ui->frame_out->height(),Qt::KeepAspectRatio));
 
-    QString stylesheet("background-color: red");
+        QString stylesheet("background-color: red");
 
-    b_locked = client_ptr->isLocked;
 
-    if(!b_locked){
-        this->ui->btn_Lock->setText(QString("Lock"));
-        this->setStyleSheet(QString(""));
-    }else{
-        this->ui->btn_Lock->setText(QString("Unlock"));
-        this->setStyleSheet(stylesheet);
+        b_locked = client_ptr->isLocked;
+
+        if(!b_locked){
+            this->ui->btn_Lock->setText(QString("Lock"));
+            this->setStyleSheet(QString(""));
+        }else{
+            this->ui->btn_Lock->setText(QString("Unlock"));
+            this->setStyleSheet(stylesheet);
+        }
     }
 }
 
@@ -39,7 +42,6 @@ void ClientPreviewWidget::disconnect_client()
     client_ptr = nullptr;
 }
 
-
 ClientPreviewWidget::~ClientPreviewWidget()
 {
     disconnect_client();
@@ -52,8 +54,6 @@ void ClientPreviewWidget::mousePressEvent(QMouseEvent *event) {
             big_view = new Dialog(nullptr, client_ptr);
             big_view->setAttribute(Qt::WA_DeleteOnClose);
             big_view->setWindowTitle(QString::fromStdString(client_ptr->getRemoteEndpointAsString()));
-            // Set the Qt::WA_DeleteOnClose attribute
-            big_view->setAttribute(Qt::WA_DeleteOnClose);
 
             // Connect the destroyed signal to set the m_dialog pointer to nullptr
             connect(big_view, &QDialog::destroyed, [this]() {
@@ -80,4 +80,3 @@ void ClientPreviewWidget::on_btn_Lock_clicked()
     }
 
 }
-

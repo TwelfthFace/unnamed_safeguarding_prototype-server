@@ -2,18 +2,37 @@
 
 #include "Server.h"
 
-ClientConnection::ClientConnection(boost::asio::io_context& context, Server& server) : server_(server), socket_(context) {
-
+ClientConnection::ClientConnection(boost::asio::io_context& context, boost::asio::ssl::context& ssl_context, Server& server)
+: server_(server), socket_(context, ssl_context) {
     keyStrokes = new std::vector<u_char>{};
     blacklistDictionary = new std::array<u_char, 1024>{};
-
 }
 
-ClientConnection::Pointer ClientConnection::create(boost::asio::io_context &context, Server& server) {
-    return Pointer(new ClientConnection(context, server));
+ClientConnection::Pointer ClientConnection::create(boost::asio::io_context &context, boost::asio::ssl::context& ssl_context, Server& server) {
+    return Pointer(new ClientConnection(context, ssl_context, server));
 }
 
-boost::asio::ip::tcp::socket& ClientConnection::socket() {
+void ClientConnection::readFromSocket(const boost::asio::mutable_buffer& buffer) {
+    try {
+        boost::asio::read(socket_, buffer);
+    } catch(std::exception& ex) {
+        std::cerr << "ERROR: Read from Socket: " << ex.what() << std::endl;
+        disconnect();
+        throw;
+    }
+}
+
+void ClientConnection::writeToSocket(const boost::asio::const_buffer& buffer) {
+    try {
+        boost::asio::write(socket_, buffer);
+    } catch(std::exception& ex) {
+        std::cerr << "ERROR: Write to Socket: " << ex.what() << std::endl;
+        disconnect();
+        throw;
+    }
+}
+
+boost::asio::ssl::stream<boost::asio::ip::tcp::socket>& ClientConnection::socket() {
   return socket_;
 }
 
@@ -26,18 +45,12 @@ void ClientConnection::sendText(const std::string& text) {
     header.type = MessageType::TEXT;
     header.size = text.size();
 
-    try{
-        std::cout << "Sending Message" << std::endl;
-        boost::asio::write(socket_, boost::asio::buffer(&header, sizeof(header)));
-        boost::asio::write(socket_, boost::asio::buffer(text));
-    }catch(std::exception& ec){
-        std::cerr << "Ungraceful disconnect: " << ec.what() << std::endl;
-    }
-
+    std::cout << "Sending Message" << std::endl;
+    writeToSocket(boost::asio::buffer(&header, sizeof(header)));
+    writeToSocket(boost::asio::buffer(text));
 }
 
-void ClientConnection::checkQueue()
-{
+void ClientConnection::checkQueue() {
     std::lock_guard<std::mutex> lock(queue_mutex_);
 
     if (!msg_queue_.empty()) {
@@ -46,14 +59,14 @@ void ClientConnection::checkQueue()
             text_buffer_ = std::get<1>(msg);
 
             std::cout << "SENDING MESSAGE " << "WITH SIZE " << header_.size << std::endl;
-            boost::asio::write(socket_, boost::asio::buffer(&header_, sizeof(header_)));
+            writeToSocket(boost::asio::buffer(&header_, sizeof(header_)));
 
             if (header_.size == 0) {
                 std::cout << "Skipping empty message" << std::endl;
                 continue;
             }
 
-            boost::asio::write(socket_, boost::asio::buffer(&text_buffer_, header_.size));
+            writeToSocket(boost::asio::buffer(&text_buffer_, sizeof(text_buffer_)));
         }
         msg_queue_.clear();
     }
@@ -106,120 +119,102 @@ void ClientConnection::removeFromWhitelist(const std::string& word)
 
 void ClientConnection::readHeader() {
     std::cout << "WAIT FOR PACKET" << std::endl;
-    try {
-        boost::asio::read(socket_, boost::asio::buffer(&header_, sizeof(Header)));
-        std::cout << "PACKET RECIEVED: " << header_.type << std::endl;
+    readFromSocket(boost::asio::buffer(&header_, sizeof(Header)));
+    std::cout << "PACKET RECEIVED: " << header_.type << std::endl;
 
-        switch (header_.type) {
-            case TEXT:
-                readTextData();
-                break;
-            case SCREENSHOT:
-                readScreenshotData();
-                break;
-            default:
-                std::cerr << "Unknown data type received" << std::endl;
-                disconnect();
+    switch (header_.type) {
+        case TEXT:
+            readTextData();
             break;
-        }
-    }catch(std::exception& ex){
-        std::cerr << "ERROR: Read Header: " << ex.what() << std::endl;
+        case SCREENSHOT:
+            readScreenshotData();
+            break;
+        default:
+            std::cerr << "Unknown data type received" << std::endl;
+            disconnect();
+            break;
     }
 }
 
 void ClientConnection::readTextData() {
-    try{
-        boost::asio::read(socket_, boost::asio::buffer(&text_buffer_, header_.size));
-        std::string received_text(text_buffer_.data(), header_.size);
-        std::cout << "Text received from client: " << socket_.remote_endpoint() << ": " << received_text << std::endl;
-
-    }catch(std::exception &ex){
-        std::cerr << ex.what() << std::endl;
-        throw;//disconnect();
-    }
+    readFromSocket(boost::asio::buffer(&text_buffer_, header_.size));
+    std::string received_text(text_buffer_.data(), header_.size);
+    std::cout << "Text received from client: " << socket_.lowest_layer().remote_endpoint() << ": " << received_text << std::endl;
 }
 
 void ClientConnection::readScreenshotData() {
-    try {
-        const size_t chunk_size = 1024; // adjust this
-        const auto screenshot_size = header_.size;
+    const size_t chunk_size = 1024; // adjust this
+    const auto screenshot_size = header_.size;
 
-        screenshot_data_.resize(screenshot_size);
-        size_t bytes_received = 0;
+    screenshot_data_.resize(screenshot_size);
+    size_t bytes_received = 0;
 
-        std::cout << "SCREENSHOT SIZE: " << (float)(screenshot_size / 1000) / 1000 << "MB" << std::endl;
+    std::cout << "SCREENSHOT SIZE: " << (float)(screenshot_size / 1000) / 1000 << "MB" << std::endl;
 
-        while (bytes_received < screenshot_size) {
-            size_t bytes_to_receive = std::min(chunk_size, screenshot_size - bytes_received);
-            boost::asio::read(socket_, boost::asio::buffer(&screenshot_data_[bytes_received], bytes_to_receive));
-            bytes_received += bytes_to_receive;
-        }
-
-        //recieve metadata
-        MetaData metadata;
-        boost::asio::read(socket_, boost::asio::buffer(&metadata, sizeof(metadata)));
-
-        isLocked = metadata.is_locked;
-
-        for(auto& ch : metadata.keyData){
-            if(ch == '\0')
-                break;
-            keyStrokes->emplace_back(ch);
-        }
-
-        std::copy(metadata.blacklistData.data(), metadata.blacklistData.data() + 1024, blacklistDictionary->data());
-
-        // check png header if valid
-        const std::array<short, 8> png_header = {137, 80, 78, 71, 13, 10, 26, 10};
-        Ack ack;
-
-        for(long unsigned int i = 0; i < png_header.size() - 1; i++){
-            short byte = (short)screenshot_data_[i];
-
-            if (byte != png_header[i]){
-                ack.status = ERRORR;
-                break;
-            }else{
-                ack.status = RECEIVED;
-            }
-        }
-
-        // Send acknowledgement back to the client
-        boost::asio::write(socket_, boost::asio::buffer(&ack, sizeof(ack)));
-
-        cv::cvtColor(cv::imdecode(screenshot_data_, cv::IMREAD_COLOR), uncompressed_screenshot_data, cv::COLOR_BGR2RGB);
-
-    }catch(std::exception &ex){
-        std::cerr << "ERROR: Read Screenshot: " << ex.what() << std::endl;
+    while (bytes_received < screenshot_size) {
+        size_t bytes_to_receive = std::min(chunk_size, screenshot_size - bytes_received);
+        readFromSocket(boost::asio::buffer(&screenshot_data_[bytes_received], bytes_to_receive));
+        bytes_received += bytes_to_receive;
     }
 
+    //receive metadata
+    MetaData metadata;
+    readFromSocket(boost::asio::buffer(&metadata, sizeof(metadata)));
+
+    isLocked = metadata.is_locked;
+
+    for(auto& ch : metadata.keyData){
+        if(ch == '\0')
+            break;
+        keyStrokes->emplace_back(ch);
+    }
+
+    std::copy(metadata.blacklistData.data(), metadata.blacklistData.data() + 1024, blacklistDictionary->data());
+
+    // check png header if valid
+    const std::array<short, 8> png_header = {137, 80, 78, 71, 13, 10, 26, 10};
+    Ack ack;
+
+    for(long unsigned int i = 0; i < png_header.size() - 1; i++){
+        short byte = (short)screenshot_data_[i];
+
+        if (byte != png_header[i]){
+            ack.status = ERRORR;
+            break;
+        }else{
+            ack.status = RECEIVED;
+        }
+    }
+
+    // Send acknowledgement back to the client
+    writeToSocket(boost::asio::buffer(&ack, sizeof(ack)));
+
+    cv::cvtColor(cv::imdecode(screenshot_data_, cv::IMREAD_COLOR), uncompressed_screenshot_data, cv::COLOR_BGR2RGB);
 }
 
-void ClientConnection::requestScreenshot(){
-    while(true){
+
+void ClientConnection::requestScreenshot() {
+    while(true) {
         sleep(1);
         checkQueue();
 
         header_.type = SCREENSHOT_REQ;
         header_.size = 0;
         header_.meta_length = 0;
+        try{
+            writeToSocket(boost::asio::buffer(&header_, sizeof(header_)));
 
-        try {
-            boost::asio::write(socket_, boost::asio::buffer(&header_, sizeof(header_)));
-        }catch(std::exception& ex){
-            std::cerr << "ERROR: Request Screenshot: " << ex.what() << std::endl;
-            disconnect();
+            readHeader();
+        }catch (...){
             break;
         }
-
-        readHeader();
     }
 }
 
 bool ClientConnection::isConnected()
 {
     std::cout << "Checking" << std::endl;
-    return socket_.is_open();
+    return socket_.lowest_layer().is_open();
 }
 
 void ClientConnection::stop()
@@ -228,11 +223,10 @@ void ClientConnection::stop()
 }
 
 void ClientConnection::disconnect() {
-
-    preview_ui->disconnect_client();
-
+    if(preview_ui)
+        delete preview_ui;
     auto self(shared_from_this());
-    socket_.close();
+    socket_.lowest_layer().close();
     server_.on_session_stopped(self, remote_endpoint_);
 }
 
@@ -259,7 +253,6 @@ void ClientConnection::addToQueue(const Header& header, const std::array<char, 1
 }
 
 ClientConnection::~ClientConnection(){
-    delete preview_ui;
     delete keyStrokes;
     delete blacklistDictionary;
     std::cout << "DESTRUCTOR CALLED" << std::endl;

@@ -42,8 +42,17 @@ qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
-unix:!macx: LIBS += -L$$PWD/../../../../usr/lib64/ -lopencv_core -lopencv_imgcodecs -lopencv_imgproc
+unix:!macx: LIBS += -L$$PWD/../../../../usr/lib64/ -lopencv_core -lopencv_imgcodecs -lopencv_imgproc -lssl -lcrypto
 
 INCLUDEPATH += $$PWD/../../../../usr/include
 DEPENDPATH += $$PWD/../../../../usr/lib64
+
+DISTFILES += \
+    client.crt \
+    client.csr \
+    client.key \
+    server.crt \
+    server.csr \
+    server.key \
+    server.pem
 

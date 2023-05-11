@@ -7,9 +7,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    server = new Server(context, server_port);
-
-    context.run();
+    server = new Server(server_port);
 
     timer = new QTimer(this);
     connect(timer, SIGNAL(timeout()), this, SLOT(update_ui()));

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 #include <array>
 #include <vector>
 #include <deque>
@@ -37,9 +38,9 @@ public:
     virtual ~ClientConnection();
 
 public:
-    boost::asio::ip::tcp::socket& socket();
+    boost::asio::ssl::stream<boost::asio::ip::tcp::socket>& socket();
     typedef std::shared_ptr<ClientConnection> Pointer;
-    static Pointer create(boost::asio::io_context &context, Server& server);
+    static Pointer create(boost::asio::io_context &context, boost::asio::ssl::context& ssl_context, Server& server);
 
     ClientPreviewWidget* preview_ui = nullptr;
     cv::Mat uncompressed_screenshot_data;
@@ -49,7 +50,7 @@ public:
     boost::asio::ip::tcp::endpoint remote_endpoint_;
 
 private:
-    ClientConnection(boost::asio::io_context& context, Server& server);
+    ClientConnection(boost::asio::io_context& context, boost::asio::ssl::context& ssl_context, Server& server);
 
     void readHeader();
     void readTextData();
@@ -57,10 +58,12 @@ private:
     void disconnect();
     void handle_timeout(const boost::system::error_code& error);
     void addToQueue(const Header& header, const std::array<char, 1024>& message);
+    void readFromSocket(const boost::asio::mutable_buffer& buffer);
+    void writeToSocket(const boost::asio::const_buffer& buffer);
 
 private:
     Server& server_;
-    boost::asio::ip::tcp::socket socket_;
+    boost::asio::ssl::stream<boost::asio::ip::tcp::socket> socket_;
     std::array<char, 1024> text_buffer_;
     std::vector<u_char> screenshot_data_;
     std::deque<std::tuple<Header, std::array<char, 1024>>> msg_queue_;
